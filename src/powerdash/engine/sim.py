@@ -113,12 +113,11 @@ def run_simulation_hourly(
 
         # Hedge MtM (t -> t+1) for the delivery day (open position repriced)
         # Mark at next day's curve snapshot for same delivery day:
-        # (fwd(t+1, delivery) - fwd(t, delivery)) * volume
-        try:
-            px_next = curve.get_fwd_base(val_date=delivery, delivery_date=delivery)
-            hedge_mtm = mtm_open_hedge_pnl(prev_curve_price=hedge_px, curr_curve_price=px_next, open_hedged_mwh=hedged_mwh)
-        except KeyError:
-            hedge_mtm = 0.0
+        # (Spot - fwd(t, delivery)) * volume
+        # Hedge MtM: approximate next-day valuation of the hedge for delivery day as delivered-day DA base price
+        px_next = spot_base  # daily avg DA for delivery day
+        hedge_mtm = mtm_open_hedge_pnl(prev_curve_price=hedge_px, curr_curve_price=px_next, open_hedged_mwh=hedged_mwh)
+
 
         # Total procurement economics for that delivery day:
         # Physical cost (DA) + imbalance cost + hedge effect (delivery pnl offsets spot economics)
