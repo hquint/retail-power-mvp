@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-def delivery_hedge_pnl(spot_base_price: float, hedge_fixed_price: float, hedged_mwh: float) -> float:
+
+def delivery_hedge_pnl(
+    spot_base_price: float, hedge_fixed_price: float, hedged_mwh: float
+) -> float:
     """
     Realised hedge benefit for delivered day:
       (spot/index - fixed) * volume
@@ -9,7 +12,9 @@ def delivery_hedge_pnl(spot_base_price: float, hedge_fixed_price: float, hedged_
     return float((spot_base_price - hedge_fixed_price) * hedged_mwh)
 
 
-def mtm_open_hedge_pnl(prev_curve_price: float, curr_curve_price: float, open_hedged_mwh: float) -> float:
+def mtm_open_hedge_pnl(
+    prev_curve_price: float, curr_curve_price: float, open_hedged_mwh: float
+) -> float:
     """
     Daily MtM change of an open hedge position for a given delivery day.
     For MVP assume linear exposure:

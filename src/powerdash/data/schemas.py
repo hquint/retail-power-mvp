@@ -2,9 +2,9 @@ from __future__ import annotations
 
 # Central place for column names to avoid refactor pain later.
 
-COL_DT = "dt"                # hourly timestamp
-COL_DATE = "date"            # daily date (no time)
-COL_VAL_DATE = "val_date"    # curve snapshot date
+COL_DT = "dt"  # hourly timestamp
+COL_DATE = "date"  # daily date (no time)
+COL_VAL_DATE = "val_date"  # curve snapshot date
 COL_DELIV_DATE = "delivery_date"
 
 COL_PRICE_DA = "price_da"

@@ -7,10 +7,8 @@ import pandas as pd
 
 from powerdash.config import SimConfig
 from powerdash.data.schemas import (
-    COL_DATE,
     COL_DELIV_DATE,
     COL_DT,
-    COL_FWD_BASE,
     COL_LOAD_ACT,
     COL_LOAD_FCST,
     COL_PRICE_DA,
@@ -59,7 +57,9 @@ def run_simulation_hourly(
 
     # Decide dates
     start = pd.Timestamp(cfg.start_date).normalize()
-    decision_days = pd.date_range(start=start, periods=cfg.n_days, freq="D", inclusive="left")
+    decision_days = pd.date_range(
+        start=start, periods=cfg.n_days, freq="D", inclusive="left"
+    )
 
     pnl_rows = []
     pos_rows = []
@@ -72,8 +72,12 @@ def run_simulation_hourly(
         delivery = t + pd.Timedelta(days=1)
 
         # Slice tomorrow
-        tomorrow_load = load.loc[load["date"] == delivery, [COL_DT, COL_LOAD_ACT, COL_LOAD_FCST]].copy()
-        tomorrow_prices = prices.loc[prices["date"] == delivery, [COL_DT, COL_PRICE_DA]].copy()
+        tomorrow_load = load.loc[
+            load["date"] == delivery, [COL_DT, COL_LOAD_ACT, COL_LOAD_FCST]
+        ].copy()
+        tomorrow_prices = prices.loc[
+            prices["date"] == delivery, [COL_DT, COL_PRICE_DA]
+        ].copy()
         if tomorrow_load.empty or tomorrow_prices.empty:
             break
 
@@ -81,7 +85,9 @@ def run_simulation_hourly(
         act_daily = float(tomorrow_load[COL_LOAD_ACT].sum())
 
         # Hedge decision (daily baseload volume)
-        hedged_mwh = fixed_ratio_daily_hedge_mwh(expected_daily_load_mwh=exp_daily, hedge_ratio=cfg.hedge_ratio)
+        hedged_mwh = fixed_ratio_daily_hedge_mwh(
+            expected_daily_load_mwh=exp_daily, hedge_ratio=cfg.hedge_ratio
+        )
         hedge_px = hedge_price_from_curve(curve, val_date=t, delivery_date=delivery)
 
         # DA procurement = residual per hour: (forecast hour - hedge/24)
@@ -89,7 +95,9 @@ def run_simulation_hourly(
         tomorrow = tomorrow_load.merge(tomorrow_prices, on=COL_DT, how="inner")
 
         tomorrow["hedge_mwh_h"] = hedge_per_hour
-        tomorrow["residual_mwh_h"] = np.maximum(tomorrow[COL_LOAD_FCST] - tomorrow["hedge_mwh_h"], 0.0)
+        tomorrow["residual_mwh_h"] = np.maximum(
+            tomorrow[COL_LOAD_FCST] - tomorrow["hedge_mwh_h"], 0.0
+        )
 
         da_cost = float((tomorrow["residual_mwh_h"] * tomorrow[COL_PRICE_DA]).sum())
 
@@ -103,21 +111,34 @@ def run_simulation_hourly(
         buy_imb = tomorrow["imbalance_mwh_h"].clip(lower=0.0)
         sell_imb = (-tomorrow["imbalance_mwh_h"]).clip(lower=0.0)
 
-        imb_buy_cost = float((buy_imb * (tomorrow[COL_PRICE_DA] + cfg.imbalance_spread_eur_per_mwh)).sum())
-        imb_sell_value = float((sell_imb * (tomorrow[COL_PRICE_DA] - cfg.imbalance_spread_eur_per_mwh)).sum())
+        imb_buy_cost = float(
+            (
+                buy_imb * (tomorrow[COL_PRICE_DA] + cfg.imbalance_spread_eur_per_mwh)
+            ).sum()
+        )
+        imb_sell_value = float(
+            (
+                sell_imb * (tomorrow[COL_PRICE_DA] - cfg.imbalance_spread_eur_per_mwh)
+            ).sum()
+        )
         imbalance_pnl = -(imb_buy_cost) + (imb_sell_value)  # negative is cost net
 
         # Hedge delivery pnl vs daily avg DA (proxy for settlement index)
         spot_base = float(tomorrow[COL_PRICE_DA].mean())
-        hedge_delivery_pnl = delivery_hedge_pnl(spot_base_price=spot_base, hedge_fixed_price=hedge_px, hedged_mwh=hedged_mwh)
+        hedge_delivery_pnl = delivery_hedge_pnl(
+            spot_base_price=spot_base, hedge_fixed_price=hedge_px, hedged_mwh=hedged_mwh
+        )
 
         # Hedge MtM (t -> t+1) for the delivery day (open position repriced)
         # Mark at next day's curve snapshot for same delivery day:
-        # (Spot - fwd(t, delivery)) * volume
+        # (fwd(t+1, delivery_day) - fwd(t, delivery)) * volume
         # Hedge MtM: approximate next-day valuation of the hedge for delivery day as delivered-day DA base price
         px_next = spot_base  # daily avg DA for delivery day
-        hedge_mtm = mtm_open_hedge_pnl(prev_curve_price=hedge_px, curr_curve_price=px_next, open_hedged_mwh=hedged_mwh)
-
+        hedge_mtm = mtm_open_hedge_pnl(
+            prev_curve_price=hedge_px,
+            curr_curve_price=px_next,
+            open_hedged_mwh=hedged_mwh,
+        )
 
         # Total procurement economics for that delivery day:
         # Physical cost (DA) + imbalance cost + hedge effect (delivery pnl offsets spot economics)

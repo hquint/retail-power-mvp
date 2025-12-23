@@ -15,7 +15,7 @@ from powerdash.data.schemas import (
     COL_PRICE_DA,
     COL_VAL_DATE,
 )
-from powerdash.utils.dates import daily_index, hourly_index
+from powerdash.utils.dates import daily_index
 
 
 @dataclass(frozen=True)
@@ -31,12 +31,35 @@ def _slp_shape_24h() -> np.ndarray:
     Simple SLP-like hourly weights (sum to 1).
     Night lower, evening higher. Keep deterministic.
     """
-    w = np.array([
-        0.030, 0.028, 0.027, 0.027, 0.028, 0.032,  # 00-05
-        0.040, 0.043, 0.045, 0.044, 0.042, 0.040,  # 06-11
-        0.038, 0.037, 0.038, 0.041, 0.048, 0.055,  # 12-17
-        0.060, 0.060, 0.055, 0.048, 0.040, 0.034,  # 18-23
-    ], dtype=float)
+    w = np.array(
+        [
+            0.030,
+            0.028,
+            0.027,
+            0.027,
+            0.028,
+            0.032,  # 00-05
+            0.040,
+            0.043,
+            0.045,
+            0.044,
+            0.042,
+            0.040,  # 06-11
+            0.038,
+            0.037,
+            0.038,
+            0.041,
+            0.048,
+            0.055,  # 12-17
+            0.060,
+            0.060,
+            0.055,
+            0.048,
+            0.040,
+            0.034,  # 18-23
+        ],
+        dtype=float,
+    )
     return w / w.sum()
 
 
@@ -68,12 +91,13 @@ def generate_mock_data(
     cal["temp_c"] = temp
 
     # Daily load level (higher when colder), plus weekend reduction
-    base_daily = daily_load_mwh * (1.0 + 0.015 * (10 - cal["temp_c"]).clip(-10, 20) / 10.0)
-    base_daily *= (1.0 - 0.05 * cal["is_weekend"])
+    base_daily = daily_load_mwh * (
+        1.0 + 0.015 * (10 - cal["temp_c"]).clip(-10, 20) / 10.0
+    )
+    base_daily *= 1.0 - 0.05 * cal["is_weekend"]
     cal["load_mwh_daily_true"] = base_daily
 
     # Hourly load actual from SLP weights + noise
-    h_idx = hourly_index(start_date, n_days_total)
     shape = _slp_shape_24h()
 
     load_rows = []
@@ -97,7 +121,11 @@ def generate_mock_data(
 
     # DA prices: correlated with load level and temp (tight system when cold + high load)
     # Daily baseload price baseline:
-    daily_price = 60 + 0.35 * (10 - cal["temp_c"]) + 0.15 * (cal["load_mwh_daily_true"] - daily_load_mwh)
+    daily_price = (
+        60
+        + 0.35 * (10 - cal["temp_c"])
+        + 0.15 * (cal["load_mwh_daily_true"] - daily_load_mwh)
+    )
     daily_price += rng.normal(0, 5.0, size=len(cal))
     cal["price_base_daily"] = np.maximum(daily_price, -20.0)
 
@@ -108,7 +136,9 @@ def generate_mock_data(
         hours = pd.date_range(d, d + pd.Timedelta(days=1), freq="h", inclusive="left")
         hour = np.arange(24)
         # smooth diurnal premium: evening peak bump
-        premium = 8 * np.exp(-0.5 * ((hour - 19) / 3.0) ** 2) - 4 * np.exp(-0.5 * ((hour - 3) / 3.0) ** 2)
+        premium = 8 * np.exp(-0.5 * ((hour - 19) / 3.0) ** 2) - 4 * np.exp(
+            -0.5 * ((hour - 3) / 3.0) ** 2
+        )
         p_hour = p_base + premium + rng.normal(0, 2.0, size=24)
         for dt, p in zip(hours, p_hour):
             price_rows.append((dt, float(p)))

@@ -5,6 +5,7 @@ from powerdash.data.generator import generate_mock_data
 from powerdash.engine.sim import run_simulation_hourly
 from powerdash.reporting.metrics import daily_dashboard_table
 
+
 def main() -> None:
     cfg = SimConfig(start_date="2026-01-01", n_days=30, seed=7)
 
@@ -28,7 +29,19 @@ def main() -> None:
     dash = daily_dashboard_table(res.daily_pnl)
     print(dash.head(10).to_string(index=False))
     print("\nSummary:")
-    print(dash[["da_cost_eur","imbalance_pnl_eur","hedge_delivery_pnl_eur","hedge_mtm_change_eur","total_economic_pnl_eur"]].sum().to_string())
+    print(
+        dash[
+            [
+                "da_cost_eur",
+                "imbalance_pnl_eur",
+                "hedge_delivery_pnl_eur",
+                "hedge_mtm_change_eur",
+                "total_economic_pnl_eur",
+            ]
+        ]
+        .sum()
+        .to_string()
+    )
 
 
 if __name__ == "__main__":
