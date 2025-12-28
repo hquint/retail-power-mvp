@@ -21,7 +21,12 @@ from powerdash.engine.hedging import (
     open_hedge_position_by_delivery,
     target_daily_hedge_book,
 )
-from powerdash.engine.pnl import mtm_hedge_book, realised_delivery_pnl_from_trades
+
+from powerdash.engine.pnl import (
+    hedge_fixed_cost_for_delivery,
+    mtm_hedge_book,
+    realised_delivery_pnl_from_trades,
+)
 
 
 @dataclass(frozen=True)
@@ -154,6 +159,15 @@ def run_simulation_hourly(
         # Settlement proxy for delivery day (daily avg DA)
         spot_base = float(tomorrow[COL_PRICE_DA].mean())
 
+        # Fair benchmark: DA-only procurement with perfect forecast (hourly DA * actual hourly load)
+        benchmark_cost_eur = float((tomorrow[COL_PRICE_DA] * tomorrow[COL_LOAD_ACT]).sum())
+
+        # Absolute fixed cost for the hedged energy delivered today
+        hedge_fixed_cost_eur = hedge_fixed_cost_for_delivery(
+            hedge_trades=hedge_trades,
+            delivery_date=delivery,
+        )
+
         # -------------------------
         # 3) Realised hedge delivery PnL from all hedge trades targeting this delivery day
         # -------------------------
@@ -186,16 +200,12 @@ def run_simulation_hourly(
                 pd.to_datetime(hedge_trades["delivery_date"]).dt.normalize() != dd
             ].copy()
 
-        # Convert imbalance PnL (negative = cost) into a positive cost number
-        imbalance_cost_eur = -imbalance_pnl
-
-        total_procurement_cost_eur = da_cost + imbalance_cost_eur - hedge_delivery_pnl
-        benchmark_cost_eur = act_daily * spot_base
-        procurement_saving_vs_benchmark_eur = (
-            benchmark_cost_eur - total_procurement_cost_eur
-        )
-
-        # Total procurement economics for that delivery day:
+      
+        # Total procurement cost for that delivery day
+        imbalance_cost_eur = float(imb_buy_cost - imb_sell_value)  # positive means net cost
+        total_procurement_cost_eur = hedge_fixed_cost_eur + da_cost + imbalance_cost_eur
+        procurement_saving_vs_benchmark_eur = benchmark_cost_eur - total_procurement_cost_eur
+        
         # Physical cost (DA) + imbalance cost + hedge effect (delivery pnl offsets spot economics)
         # For dashboard attribution, keep components separate.
         pnl_rows.append(
@@ -206,8 +216,10 @@ def run_simulation_hourly(
                 "act_load_mwh": act_daily,
                 "hedged_mwh": hedged_mwh,
                 "spot_base_price": spot_base,
+                "hedge_fixed_cost_eur": hedge_fixed_cost_eur,
                 "da_cost_eur": da_cost,
-                "imbalance_pnl_eur": imbalance_pnl,
+                "imbalance_cost_eur": imbalance_cost_eur,
+                "imbalance_pnl_eur": imbalance_pnl,  # keep for debugging (negative if cost)
                 "hedge_delivery_pnl_eur": hedge_delivery_pnl,
                 "hedge_mtm_change_eur": hedge_mtm,
                 "total_procurement_cost_eur": total_procurement_cost_eur,

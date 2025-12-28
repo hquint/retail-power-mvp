@@ -32,8 +32,9 @@ def main() -> None:
     print(
         dash[
             [
+                "hedge_fixed_cost_eur",
                 "da_cost_eur",
-                "imbalance_pnl_eur",
+                "imbalance_cost_eur",
                 "hedge_delivery_pnl_eur",
                 "hedge_mtm_change_eur",
                 "total_procurement_cost_eur",
