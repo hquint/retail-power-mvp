@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+
 def delivery_hedge_pnl(
     spot_base_price: float, hedge_fixed_price: float, hedged_mwh: float
 ) -> float:
@@ -23,6 +24,7 @@ def mtm_open_hedge_pnl(
     (Sign depends on being long fixed-price vs float; here we treat it as long the forward price.)
     """
     return float((curr_curve_price - prev_curve_price) * open_hedged_mwh)
+
 
 def mtm_hedge_book(
     hedge_trades: pd.DataFrame,
@@ -68,7 +70,11 @@ def realised_delivery_pnl_from_trades(
     if hedge_trades.empty:
         return 0.0
     d = pd.Timestamp(delivery_date).normalize()
-    day_trades = hedge_trades.loc[pd.to_datetime(hedge_trades["delivery_date"]).dt.normalize() == d]
+    day_trades = hedge_trades.loc[
+        pd.to_datetime(hedge_trades["delivery_date"]).dt.normalize() == d
+    ]
     if day_trades.empty:
         return 0.0
-    return float(((spot_base_price - day_trades["fixed_price"]) * day_trades["volume_mwh"]).sum())
+    return float(
+        ((spot_base_price - day_trades["fixed_price"]) * day_trades["volume_mwh"]).sum()
+    )

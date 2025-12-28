@@ -60,8 +60,9 @@ def run_simulation_hourly(
 
     curve = DailyBaseForwardCurve(fwd_curves_daily=fwd_curves_daily)
     # create hedge book
-    hedge_trades = pd.DataFrame(columns=["trade_date", "delivery_date", "volume_mwh", "fixed_price"])
-
+    hedge_trades = pd.DataFrame(
+        columns=["trade_date", "delivery_date", "volume_mwh", "fixed_price"]
+    )
 
     # Decide dates
     start = pd.Timestamp(cfg.start_date).normalize()
@@ -122,7 +123,9 @@ def run_simulation_hourly(
         # -------------------------
         tomorrow = tomorrow_load.merge(tomorrow_prices, on=COL_DT, how="inner")
         tomorrow["hedge_mwh_h"] = hedge_per_hour
-        tomorrow["residual_mwh_h"] = np.maximum(tomorrow[COL_LOAD_FCST] - tomorrow["hedge_mwh_h"], 0.0)
+        tomorrow["residual_mwh_h"] = np.maximum(
+            tomorrow[COL_LOAD_FCST] - tomorrow["hedge_mwh_h"], 0.0
+        )
 
         da_cost = float((tomorrow["residual_mwh_h"] * tomorrow[COL_PRICE_DA]).sum())
 
@@ -150,8 +153,7 @@ def run_simulation_hourly(
 
         # Settlement proxy for delivery day (daily avg DA)
         spot_base = float(tomorrow[COL_PRICE_DA].mean())
-        
-        
+
         # -------------------------
         # 3) Realised hedge delivery PnL from all hedge trades targeting this delivery day
         # -------------------------
@@ -180,15 +182,18 @@ def run_simulation_hourly(
         # Drop trades for the delivered day (they are now realised/expired). This prevents “double counting” hedge PnL.
         if not hedge_trades.empty:
             dd = pd.Timestamp(delivery).normalize()
-            hedge_trades = hedge_trades.loc[pd.to_datetime(hedge_trades["delivery_date"]).dt.normalize() != dd].copy()
+            hedge_trades = hedge_trades.loc[
+                pd.to_datetime(hedge_trades["delivery_date"]).dt.normalize() != dd
+            ].copy()
 
-        
         # Convert imbalance PnL (negative = cost) into a positive cost number
         imbalance_cost_eur = -imbalance_pnl
 
         total_procurement_cost_eur = da_cost + imbalance_cost_eur - hedge_delivery_pnl
         benchmark_cost_eur = act_daily * spot_base
-        procurement_saving_vs_benchmark_eur = benchmark_cost_eur - total_procurement_cost_eur
+        procurement_saving_vs_benchmark_eur = (
+            benchmark_cost_eur - total_procurement_cost_eur
+        )
 
         # Total procurement economics for that delivery day:
         # Physical cost (DA) + imbalance cost + hedge effect (delivery pnl offsets spot economics)

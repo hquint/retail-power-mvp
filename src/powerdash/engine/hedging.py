@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+
 def hedge_ratio_by_tenor_days(k: int) -> float:
     """
     Simple hedge ladder by tenor (days ahead).
@@ -27,7 +28,13 @@ def target_daily_hedge_book(
     for k in range(1, horizon_days + 1):
         d = val + pd.Timedelta(days=k)
         hr = hedge_ratio_by_tenor_days(k)
-        rows.append({"val_date": val, "delivery_date": d, "target_hedge_mwh": expected_daily_load_mwh * hr})
+        rows.append(
+            {
+                "val_date": val,
+                "delivery_date": d,
+                "target_hedge_mwh": expected_daily_load_mwh * hr,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -41,7 +48,11 @@ def open_hedge_position_by_delivery(hedge_trades: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame({"delivery_date": [], "open_mwh": []})
     df = hedge_trades.copy()
     df["delivery_date"] = pd.to_datetime(df["delivery_date"]).dt.normalize()
-    return df.groupby("delivery_date", as_index=False)["volume_mwh"].sum().rename(columns={"volume_mwh": "open_mwh"})
+    return (
+        df.groupby("delivery_date", as_index=False)["volume_mwh"]
+        .sum()
+        .rename(columns={"volume_mwh": "open_mwh"})
+    )
 
 
 def add_hedge_adjustments(
