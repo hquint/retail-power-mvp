@@ -3,7 +3,7 @@ from __future__ import annotations
 from powerdash.config import SimConfig
 from powerdash.data.generator import generate_mock_data
 from powerdash.engine.sim import run_simulation_hourly
-from powerdash.reporting.metrics import daily_dashboard_table
+from powerdash.reporting.metrics import daily_dashboard_table, risk_summary
 
 
 def main() -> None:
@@ -29,6 +29,7 @@ def main() -> None:
     )
 
     dash = daily_dashboard_table(res.daily_pnl)
+
     print(dash.head(10).to_string(index=False))
     print("\nSummary:")
     print(
@@ -47,6 +48,10 @@ def main() -> None:
         .sum()
         .to_string()
     )
+    
+    risk = risk_summary(dash)
+    print("\nRisk summary:")
+    print(risk.to_string(index=False))
 
 
 if __name__ == "__main__":
