@@ -79,7 +79,10 @@ def realised_delivery_pnl_from_trades(
         ((spot_base_price - day_trades["fixed_price"]) * day_trades["volume_mwh"]).sum()
     )
 
-def hedge_fixed_cost_for_delivery(hedge_trades: pd.DataFrame, delivery_date: pd.Timestamp) -> float:
+
+def hedge_fixed_cost_for_delivery(
+    hedge_trades: pd.DataFrame, delivery_date: pd.Timestamp
+) -> float:
     """
     Absolute fixed-price cost for hedges delivering on delivery_date:
       sum(fixed_price * volume)
@@ -87,7 +90,9 @@ def hedge_fixed_cost_for_delivery(hedge_trades: pd.DataFrame, delivery_date: pd.
     if hedge_trades.empty:
         return 0.0
     d = pd.Timestamp(delivery_date).normalize()
-    day_trades = hedge_trades.loc[pd.to_datetime(hedge_trades["delivery_date"]).dt.normalize() == d]
+    day_trades = hedge_trades.loc[
+        pd.to_datetime(hedge_trades["delivery_date"]).dt.normalize() == d
+    ]
     if day_trades.empty:
         return 0.0
     return float((day_trades["fixed_price"] * day_trades["volume_mwh"]).sum())

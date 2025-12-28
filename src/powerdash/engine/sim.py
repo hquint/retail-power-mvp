@@ -160,7 +160,9 @@ def run_simulation_hourly(
         spot_base = float(tomorrow[COL_PRICE_DA].mean())
 
         # Fair benchmark: DA-only procurement with perfect forecast (hourly DA * actual hourly load)
-        benchmark_cost_eur = float((tomorrow[COL_PRICE_DA] * tomorrow[COL_LOAD_ACT]).sum())
+        benchmark_cost_eur = float(
+            (tomorrow[COL_PRICE_DA] * tomorrow[COL_LOAD_ACT]).sum()
+        )
 
         # Absolute fixed cost for the hedged energy delivered today
         hedge_fixed_cost_eur = hedge_fixed_cost_for_delivery(
@@ -200,12 +202,15 @@ def run_simulation_hourly(
                 pd.to_datetime(hedge_trades["delivery_date"]).dt.normalize() != dd
             ].copy()
 
-      
         # Total procurement cost for that delivery day
-        imbalance_cost_eur = float(imb_buy_cost - imb_sell_value)  # positive means net cost
+        imbalance_cost_eur = float(
+            imb_buy_cost - imb_sell_value
+        )  # positive means net cost
         total_procurement_cost_eur = hedge_fixed_cost_eur + da_cost + imbalance_cost_eur
-        procurement_saving_vs_benchmark_eur = benchmark_cost_eur - total_procurement_cost_eur
-        
+        procurement_saving_vs_benchmark_eur = (
+            benchmark_cost_eur - total_procurement_cost_eur
+        )
+
         # Physical cost (DA) + imbalance cost + hedge effect (delivery pnl offsets spot economics)
         # For dashboard attribution, keep components separate.
         pnl_rows.append(
