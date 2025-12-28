@@ -18,3 +18,8 @@ class SimConfig:
 
     # Imbalance proxy (for now: simple penalty spread vs DA)
     imbalance_spread_eur_per_mwh: float = 50.0  # placeholder, will improve later
+
+    # Scarcity regime (mock realism)
+    scarcity_day_prob: float = 0.06          # ~6% of days are scarcity days in winter
+    scarcity_peak_multiplier: float = 6.0    # multiplies the evening peak premium
+
