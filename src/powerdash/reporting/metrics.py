@@ -14,12 +14,13 @@ def daily_dashboard_table(daily_pnl: pd.DataFrame) -> pd.DataFrame:
         "exp_load_mwh",
         "act_load_mwh",
         "hedged_mwh",
-        "hedge_fixed_price",
         "spot_base_price",
         "da_cost_eur",
         "imbalance_pnl_eur",
         "hedge_delivery_pnl_eur",
         "hedge_mtm_change_eur",
-        "total_economic_pnl_eur",
+        "total_procurement_cost_eur",
+        "benchmark_cost_eur",
+        "procurement_saving_vs_benchmark_eur",
     ]
     return df[cols].sort_values("date")

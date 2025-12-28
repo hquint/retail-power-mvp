@@ -36,7 +36,9 @@ def main() -> None:
                 "imbalance_pnl_eur",
                 "hedge_delivery_pnl_eur",
                 "hedge_mtm_change_eur",
-                "total_economic_pnl_eur",
+                "total_procurement_cost_eur",
+                "benchmark_cost_eur",
+                "procurement_saving_vs_benchmark_eur",
             ]
         ]
         .sum()
