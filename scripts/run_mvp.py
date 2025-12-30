@@ -41,14 +41,14 @@ def main() -> None:
                 "hedge_delivery_pnl_eur",
                 "hedge_mtm_change_eur",
                 "total_procurement_cost_eur",
-                "benchmark_cost_eur",
-                "procurement_saving_vs_benchmark_eur",
+                "da_only_total_cost_eur",
+                "procurement_saving_vs_da_only_eur",
             ]
         ]
         .sum()
         .to_string()
     )
-    
+
     risk = risk_summary(dash)
     print("\nRisk summary:")
     print(risk.to_string(index=False))

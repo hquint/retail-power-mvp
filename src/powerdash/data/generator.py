@@ -69,7 +69,7 @@ def generate_mock_data(
     daily_load_mwh: float,
     fwd_horizon_days: int,
     forecast_sigma: float,
-    seed: int = 7,    
+    seed: int = 7,
     scarcity_day_prob: float = 0.06,
     scarcity_peak_multiplier: float = 6.0,
 ) -> MockMarketData:
@@ -97,8 +97,9 @@ def generate_mock_data(
 
     # Scarcity day draw (only on winter-like days)
     scarcity_draw = rng.random(len(cal))
-    cal["is_scarcity_day"] = ((cal["is_winter_like"] == 1) & (scarcity_draw < scarcity_day_prob)).astype(int)
-
+    cal["is_scarcity_day"] = (
+        (cal["is_winter_like"] == 1) & (scarcity_draw < scarcity_day_prob)
+    ).astype(int)
 
     # Daily load level (higher when colder), plus weekend reduction
     base_daily = daily_load_mwh * (
@@ -145,9 +146,11 @@ def generate_mock_data(
         p_base = float(cal.loc[cal[COL_DATE] == d, "price_base_daily"].iloc[0])
         hours = pd.date_range(d, d + pd.Timedelta(days=1), freq="h", inclusive="left")
         hour = np.arange(24)
-        
+
         # smooth diurnal premium: evening peak bump
-        premium = 8 * np.exp(-0.5 * ((hour - 19) / 3.0) ** 2) - 4 * np.exp(-0.5 * ((hour - 3) / 3.0) ** 2)
+        premium = 8 * np.exp(-0.5 * ((hour - 19) / 3.0) ** 2) - 4 * np.exp(
+            -0.5 * ((hour - 3) / 3.0) ** 2
+        )
 
         # Scarcity: amplify evening peak premium on scarcity days (creates rare but severe spikes)
         is_scarcity = int(cal.loc[cal[COL_DATE] == d, "is_scarcity_day"].iloc[0])
@@ -157,7 +160,7 @@ def generate_mock_data(
             premium = np.where(premium > 0, premium * scarcity_peak_multiplier, premium)
 
         p_hour = p_base + premium + rng.normal(0, 2.0, size=24)
-        
+
         for dt, p in zip(hours, p_hour):
             price_rows.append((dt, float(p)))
 
