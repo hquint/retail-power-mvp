@@ -159,11 +159,29 @@ def run_simulation_hourly(
         # Settlement proxy for delivery day (daily avg DA)
         spot_base = float(tomorrow[COL_PRICE_DA].mean())
 
-        # Fair benchmark: DA-only procurement with perfect forecast (hourly DA * actual hourly load)
-        benchmark_cost_eur = float(
+        # Perfect DA benchmark: DA-only procurement with perfect forecast (hourly DA * actual hourly load)
+        benchmark_perfect_da_cost_eur = float(
             (tomorrow[COL_PRICE_DA] * tomorrow[COL_LOAD_ACT]).sum()
         )
+        #-----------------------
+        # DA-only benchmark (forecast + imbalance)
+        #-----------------------
+        # DA buy = forecast volume each hour (no hedge)
+        da_only_da_cost_eur = float((tomorrow[COL_PRICE_DA] * tomorrow[COL_LOAD_FCST]).sum())
 
+        # Imbalance if DA-only schedule = forecast
+        da_only_imbalance_mwh_h = tomorrow[COL_LOAD_ACT] - tomorrow[COL_LOAD_FCST]
+        da_only_buy_imb = da_only_imbalance_mwh_h.clip(lower=0.0)
+        da_only_sell_imb = (-da_only_imbalance_mwh_h).clip(lower=0.0)
+
+        da_only_imb_buy_cost_eur = float((da_only_buy_imb * (tomorrow[COL_PRICE_DA] + cfg.imbalance_spread_eur_per_mwh)).sum())
+        da_only_imb_sell_value_eur = float((da_only_sell_imb * (tomorrow[COL_PRICE_DA] - cfg.imbalance_spread_eur_per_mwh)).sum())
+
+        da_only_imbalance_cost_eur = float(da_only_imb_buy_cost_eur - da_only_imb_sell_value_eur)
+        # main benchmark
+        da_only_total_cost_eur = float(da_only_da_cost_eur + da_only_imbalance_cost_eur)
+
+        #--------------------------
         # Absolute fixed cost for the hedged energy delivered today
         hedge_fixed_cost_eur = hedge_fixed_cost_for_delivery(
             hedge_trades=hedge_trades,
@@ -207,8 +225,13 @@ def run_simulation_hourly(
             imb_buy_cost - imb_sell_value
         )  # positive means net cost
         total_procurement_cost_eur = hedge_fixed_cost_eur + da_cost + imbalance_cost_eur
-        procurement_saving_vs_benchmark_eur = (
-            benchmark_cost_eur - total_procurement_cost_eur
+        
+        procurement_saving_vs_da_only_eur = (
+            da_only_total_cost_eur - total_procurement_cost_eur
+        )
+
+        procurement_saving_vs_perfect_da_eur = (
+            benchmark_perfect_da_cost_eur - total_procurement_cost_eur
         )
 
         # Physical cost (DA) + imbalance cost + hedge effect (delivery pnl offsets spot economics)
@@ -228,8 +251,12 @@ def run_simulation_hourly(
                 "hedge_delivery_pnl_eur": hedge_delivery_pnl,
                 "hedge_mtm_change_eur": hedge_mtm,
                 "total_procurement_cost_eur": total_procurement_cost_eur,
-                "benchmark_cost_eur": benchmark_cost_eur,
-                "procurement_saving_vs_benchmark_eur": procurement_saving_vs_benchmark_eur,
+                "da_only_da_cost_eur": da_only_da_cost_eur,
+                "da_only_imbalance_cost_eur": da_only_imbalance_cost_eur,
+                "da_only_total_cost_eur": da_only_total_cost_eur,
+                "benchmark_perfect_da_cost_eur": benchmark_perfect_da_cost_eur,
+                "procurement_saving_vs_da_only_eur": procurement_saving_vs_da_only_eur,
+                "procurement_saving_vs_perfect_da_eur": procurement_saving_vs_perfect_da_eur,
             }
         )
 
