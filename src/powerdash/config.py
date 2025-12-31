@@ -16,9 +16,18 @@ class SimConfig:
     # Forecast error (relative)
     forecast_sigma: float = 0.03  # ~3% hourly-ish error aggregated
 
-    # Imbalance proxy (for now: simple penalty spread vs DA)
-    imbalance_spread_eur_per_mwh: float = 50.0  # placeholder, will improve later
+    # Imbalance proxy (state-dependent reBAP-style spread vs DA)
+    imbalance_spread_base_eur_per_mwh: float = 6.0  # base spread always applied
+    imbalance_spread_scarcity_add_eur_per_mwh: float = (
+        45.0  # scarcity add applies only in scarcity peak hours
+    )
+    imbalance_sell_discount_factor: float = (
+        0.35  # sell widens less than buy via discount factor
+    )
 
     # Scarcity regime (mock realism)
     scarcity_day_prob: float = 0.06  # ~6% of days are scarcity days in winter
     scarcity_peak_multiplier: float = 6.0  # multiplies the evening peak premium
+    forecast_sigma_scarcity_mult: float = (
+        2.5  # forecast sigma increases on scarcity days (more in peak hours)
+    )

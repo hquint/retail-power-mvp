@@ -19,6 +19,7 @@ def main() -> None:
         seed=cfg.seed,
         scarcity_day_prob=cfg.scarcity_day_prob,
         scarcity_peak_multiplier=cfg.scarcity_peak_multiplier,
+        scarcity_forecast_sigma_mult=cfg.forecast_sigma_scarcity_mult,
     )
 
     res = run_simulation_hourly(

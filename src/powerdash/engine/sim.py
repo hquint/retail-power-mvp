@@ -87,7 +87,8 @@ def run_simulation_hourly(
 
         # Slice tomorrow
         tomorrow_load = load.loc[
-            load["date"] == delivery, [COL_DT, COL_LOAD_ACT, COL_LOAD_FCST]
+            load["date"] == delivery,
+            [COL_DT, COL_LOAD_ACT, COL_LOAD_FCST, "is_scarcity_day", "is_peak_hour"],
         ].copy()
         tomorrow_prices = prices.loc[
             prices["date"] == delivery, [COL_DT, COL_PRICE_DA]
@@ -137,23 +138,27 @@ def run_simulation_hourly(
         # Schedule: hedge + DA = hedge_per_hour + residual
         tomorrow["sched_mwh_h"] = tomorrow["hedge_mwh_h"] + tomorrow["residual_mwh_h"]
 
-        # Imbalance proxy: actual - schedule, penalise at (DA + spread) for positive shortfall
-        # (This is simplified; we’ll replace with reBAP series later.)
+        # Imbalance proxy: actual - schedule, state-dependent spreads in scarcity peak hours.
         tomorrow["imbalance_mwh_h"] = tomorrow[COL_LOAD_ACT] - tomorrow["sched_mwh_h"]
         # Short imbalance (need to buy): positive imbalance
         buy_imb = tomorrow["imbalance_mwh_h"].clip(lower=0.0)
         sell_imb = (-tomorrow["imbalance_mwh_h"]).clip(lower=0.0)
 
-        imb_buy_cost = float(
-            (
-                buy_imb * (tomorrow[COL_PRICE_DA] + cfg.imbalance_spread_eur_per_mwh)
-            ).sum()
+        base = cfg.imbalance_spread_base_eur_per_mwh
+        scar_add = cfg.imbalance_spread_scarcity_add_eur_per_mwh
+        scar_factor = (tomorrow["is_scarcity_day"] * tomorrow["is_peak_hour"]).astype(
+            float
         )
-        imb_sell_value = float(
-            (
-                sell_imb * (tomorrow[COL_PRICE_DA] - cfg.imbalance_spread_eur_per_mwh)
-            ).sum()
+
+        buy_spread = base + scar_add * scar_factor
+        sell_spread = (
+            base + (cfg.imbalance_sell_discount_factor * scar_add) * scar_factor
         )
+        tomorrow["imb_buy_px"] = tomorrow[COL_PRICE_DA] + buy_spread
+        tomorrow["imb_sell_px"] = tomorrow[COL_PRICE_DA] - sell_spread
+
+        imb_buy_cost = float((buy_imb * tomorrow["imb_buy_px"]).sum())
+        imb_sell_value = float((sell_imb * tomorrow["imb_sell_px"]).sum())
         imbalance_pnl = -(imb_buy_cost) + (imb_sell_value)  # negative is cost net
 
         # Settlement proxy for delivery day (daily avg DA)
@@ -177,16 +182,10 @@ def run_simulation_hourly(
         da_only_sell_imb = (-da_only_imbalance_mwh_h).clip(lower=0.0)
 
         da_only_imb_buy_cost_eur = float(
-            (
-                da_only_buy_imb
-                * (tomorrow[COL_PRICE_DA] + cfg.imbalance_spread_eur_per_mwh)
-            ).sum()
+            (da_only_buy_imb * tomorrow["imb_buy_px"]).sum()
         )
         da_only_imb_sell_value_eur = float(
-            (
-                da_only_sell_imb
-                * (tomorrow[COL_PRICE_DA] - cfg.imbalance_spread_eur_per_mwh)
-            ).sum()
+            (da_only_sell_imb * tomorrow["imb_sell_px"]).sum()
         )
 
         da_only_imbalance_cost_eur = float(

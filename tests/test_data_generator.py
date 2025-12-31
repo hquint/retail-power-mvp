@@ -32,8 +32,19 @@ def test_generate_mock_data_shapes_and_columns() -> None:
         scarcity_peak_multiplier=6.0,
     )
 
-    assert list(mock.prices_da_hourly.columns) == [COL_DT, COL_PRICE_DA]
-    assert list(mock.load_hourly.columns) == [COL_DT, COL_LOAD_ACT, COL_LOAD_FCST]
+    assert list(mock.prices_da_hourly.columns) == [
+        COL_DT,
+        COL_PRICE_DA,
+        "is_scarcity_day",
+        "is_peak_hour",
+    ]
+    assert list(mock.load_hourly.columns) == [
+        COL_DT,
+        COL_LOAD_ACT,
+        "is_scarcity_day",
+        "is_peak_hour",
+        COL_LOAD_FCST,
+    ]
     assert list(mock.fwd_curves_daily.columns) == [
         COL_VAL_DATE,
         COL_DELIV_DATE,
@@ -86,9 +97,9 @@ def test_generate_mock_data_date_ranges_and_totals() -> None:
     load["date"] = load[COL_DT].dt.normalize()
 
     daily_actual = (
-        load.groupby("date", as_index=False)[COL_LOAD_ACT].sum().rename(
-            columns={"date": COL_DATE}
-        )
+        load.groupby("date", as_index=False)[COL_LOAD_ACT]
+        .sum()
+        .rename(columns={"date": COL_DATE})
     )
     merged = daily_actual.merge(cal[[COL_DATE, "load_mwh_daily_true"]], on=COL_DATE)
 

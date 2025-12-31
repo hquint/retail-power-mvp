@@ -72,6 +72,7 @@ def generate_mock_data(
     seed: int = 7,
     scarcity_day_prob: float = 0.06,
     scarcity_peak_multiplier: float = 6.0,
+    scarcity_forecast_sigma_mult: float = 2.5,
 ) -> MockMarketData:
     """
     Generates:
@@ -115,6 +116,7 @@ def generate_mock_data(
     for d in d_idx:
         day_total = float(cal.loc[cal[COL_DATE] == d, "load_mwh_daily_true"].iloc[0])
         hours = pd.date_range(d, d + pd.Timedelta(days=1), freq="h", inclusive="left")
+        is_scarcity_day = int(cal.loc[cal[COL_DATE] == d, "is_scarcity_day"].iloc[0])
         # multiplicative noise (small)
         noise = rng.normal(0, 0.01, size=24)
         hourly = day_total * shape * (1.0 + noise)
@@ -122,12 +124,22 @@ def generate_mock_data(
         # renormalize to keep daily totals close
         hourly *= day_total / hourly.sum()
         for dt, mwh in zip(hours, hourly):
-            load_rows.append((dt, mwh))
+            is_peak_hour = int(17 <= dt.hour <= 20)
+            load_rows.append((dt, mwh, is_scarcity_day, is_peak_hour))
 
-    load = pd.DataFrame(load_rows, columns=[COL_DT, COL_LOAD_ACT])
+    load = pd.DataFrame(
+        load_rows, columns=[COL_DT, COL_LOAD_ACT, "is_scarcity_day", "is_peak_hour"]
+    )
 
     # Forecast = actual + error (forecast error independent-ish)
-    eps = rng.normal(0, forecast_sigma, size=len(load))
+    base_sigma = np.where(
+        load["is_scarcity_day"].to_numpy() == 1,
+        forecast_sigma * scarcity_forecast_sigma_mult,
+        forecast_sigma,
+    )
+    peak_mult = np.where(load["is_peak_hour"].to_numpy() == 1, 1.6, 1.0)
+    hour_sigma = base_sigma * peak_mult
+    eps = rng.normal(0, hour_sigma, size=len(load))
     load[COL_LOAD_FCST] = np.maximum(load[COL_LOAD_ACT] * (1.0 + eps), 0.0)
 
     # DA prices: correlated with load level and temp (tight system when cold + high load)
@@ -162,9 +174,12 @@ def generate_mock_data(
         p_hour = p_base + premium + rng.normal(0, 2.0, size=24)
 
         for dt, p in zip(hours, p_hour):
-            price_rows.append((dt, float(p)))
+            is_peak_hour = int(17 <= dt.hour <= 20)
+            price_rows.append((dt, float(p), is_scarcity, is_peak_hour))
 
-    prices = pd.DataFrame(price_rows, columns=[COL_DT, COL_PRICE_DA])
+    prices = pd.DataFrame(
+        price_rows, columns=[COL_DT, COL_PRICE_DA, "is_scarcity_day", "is_peak_hour"]
+    )
 
     # Forward curve snapshots (daily baseload):
     # For each val_date, create fwd price for delivery_date = val_date+1..val_date+H
