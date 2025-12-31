@@ -63,6 +63,8 @@ def run_simulation_hourly(
     prices["date"] = prices[COL_DT].dt.normalize()
     load["date"] = load[COL_DT].dt.normalize()
 
+    rng = np.random.default_rng(cfg.seed)
+
     curve = DailyBaseForwardCurve(fwd_curves_daily=fwd_curves_daily)
     # create hedge book
     hedge_trades = pd.DataFrame(
@@ -135,8 +137,23 @@ def run_simulation_hourly(
 
         da_cost = float((tomorrow["residual_mwh_h"] * tomorrow[COL_PRICE_DA]).sum())
 
-        # Schedule: hedge + DA = hedge_per_hour + residual
-        tomorrow["sched_mwh_h"] = tomorrow["hedge_mwh_h"] + tomorrow["residual_mwh_h"]
+        # Schedule: hedge + DA + operational schedule error
+        load_fcst = tomorrow[COL_LOAD_FCST].to_numpy()
+        residual = tomorrow["residual_mwh_h"].to_numpy()
+        residual_share = residual / np.maximum(load_fcst, 1e-9)
+        residual_share = np.clip(residual_share, 0.0, 1.0)
+        scarcity_mult = 1.0 + cfg.schedule_error_scarcity_mult * (
+            tomorrow["is_scarcity_day"].to_numpy() * tomorrow["is_peak_hour"].to_numpy()
+        )
+        sigma_h = (
+            cfg.schedule_error_sigma_base
+            * (1.0 + cfg.schedule_error_residual_sensitivity * residual_share)
+            * scarcity_mult
+        )
+        sched_error_mwh_h = rng.normal(0.0, sigma_h * load_fcst)
+        tomorrow["sched_mwh_h"] = (
+            tomorrow["hedge_mwh_h"] + tomorrow["residual_mwh_h"] + sched_error_mwh_h
+        )
 
         # Imbalance proxy: actual - schedule, state-dependent spreads in scarcity peak hours.
         tomorrow["imbalance_mwh_h"] = tomorrow[COL_LOAD_ACT] - tomorrow["sched_mwh_h"]
@@ -176,8 +193,15 @@ def run_simulation_hourly(
             (tomorrow[COL_PRICE_DA] * tomorrow[COL_LOAD_FCST]).sum()
         )
 
-        # Imbalance if DA-only schedule = forecast
-        da_only_imbalance_mwh_h = tomorrow[COL_LOAD_ACT] - tomorrow[COL_LOAD_FCST]
+        # Imbalance if DA-only schedule = forecast + schedule error (residual_share=1)
+        da_only_sigma_h = (
+            cfg.schedule_error_sigma_base
+            * (1.0 + cfg.schedule_error_residual_sensitivity)
+            * scarcity_mult
+        )
+        da_only_sched_error = rng.normal(0.0, da_only_sigma_h * load_fcst)
+        da_only_sched_mwh_h = tomorrow[COL_LOAD_FCST] + da_only_sched_error
+        da_only_imbalance_mwh_h = tomorrow[COL_LOAD_ACT] - da_only_sched_mwh_h
         da_only_buy_imb = da_only_imbalance_mwh_h.clip(lower=0.0)
         da_only_sell_imb = (-da_only_imbalance_mwh_h).clip(lower=0.0)
 

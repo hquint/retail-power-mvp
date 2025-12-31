@@ -72,7 +72,6 @@ def generate_mock_data(
     seed: int = 7,
     scarcity_day_prob: float = 0.06,
     scarcity_peak_multiplier: float = 6.0,
-    scarcity_forecast_sigma_mult: float = 2.5,
 ) -> MockMarketData:
     """
     Generates:
@@ -132,14 +131,7 @@ def generate_mock_data(
     )
 
     # Forecast = actual + error (forecast error independent-ish)
-    base_sigma = np.where(
-        load["is_scarcity_day"].to_numpy() == 1,
-        forecast_sigma * scarcity_forecast_sigma_mult,
-        forecast_sigma,
-    )
-    peak_mult = np.where(load["is_peak_hour"].to_numpy() == 1, 1.6, 1.0)
-    hour_sigma = base_sigma * peak_mult
-    eps = rng.normal(0, hour_sigma, size=len(load))
+    eps = rng.normal(0, forecast_sigma, size=len(load))
     load[COL_LOAD_FCST] = np.maximum(load[COL_LOAD_ACT] * (1.0 + eps), 0.0)
 
     # DA prices: correlated with load level and temp (tight system when cold + high load)

@@ -144,3 +144,106 @@ No new reporting columns are required beyond the scarcity flags, which should no
 - da_only_p95_cost_eur > hedged_p95_cost_eur (often, not guaranteed every run)
 - da_only_max_cost_eur > hedged_max_cost_eur (often, not guaranteed every run)
 3) The daily table contains `procurement_saving_vs_da_only_eur` that is not identically equal to hedge_delivery_pnl anymore (i.e., the identity is broken by state-dependent imbalance + forecast error).
+
+---
+
+# Patch V2: remove scarcity forecast error + add schedule error mechanism
+
+## Objective
+Break the identity where `procurement_saving_vs_da_only_eur == hedge_delivery_pnl_eur` by making imbalance exposure differ between strategies.
+
+We will:
+1) REMOVE the scarcity forecast-error amplification (it affects both strategies equally and adds complexity).
+2) ADD a schedule-error mechanism that scales with DA residual reliance and is amplified in scarcity peak hours.
+This creates realistic operational imbalance risk and allows hedging to reduce tail risk vs DA-only.
+
+---
+
+## V2-A) Remove scarcity forecast error changes
+
+### Files
+- src/powerdash/config.py
+- src/powerdash/data/generator.py
+- scripts/run_mvp.py
+
+### Required removals
+1) In SimConfig (config.py):
+   - Remove `forecast_sigma_scarcity_mult`.
+
+2) In generator.py:
+   - Remove the function parameter `scarcity_forecast_sigma_mult`.
+   - Remove any logic that scales forecast noise by scarcity / peak hours.
+   - Keep only: `hourly_forecast = max(hourly_actual + Normal(0, forecast_sigma), 0)` (your existing baseline logic).
+   - KEEP the columns:
+     - `is_scarcity_day`
+     - `is_peak_hour`
+     in hourly load and price rows (used for reBAP and schedule error).
+
+3) In run_mvp.py:
+   - Remove passing `scarcity_forecast_sigma_mult=...`.
+
+After removal, `generate_mock_data(...)` should no longer accept that parameter.
+
+---
+
+## V2-B) Add schedule error mechanism
+
+### Add config knobs
+File: src/powerdash/config.py (SimConfig)
+
+Add:
+- schedule_error_sigma_base: float = 0.004
+- schedule_error_residual_sensitivity: float = 1.5
+- schedule_error_scarcity_mult: float = 4.0
+
+Interpretation:
+- schedule error is an operational nomination/position management error (MWh).
+- it increases as the residual (DA reliance) increases.
+- it is amplified on scarcity *peak hours*.
+
+### Implement schedule error in sim.py (hedged strategy)
+File: src/powerdash/engine/sim.py
+
+After computing:
+- `tomorrow["hedge_mwh_h"]`
+- `tomorrow["residual_mwh_h"]`
+
+Compute a schedule error per hour:
+
+1) Define residual share:
+   residual_share = residual_mwh_h / max(load_fcst_mwh_h, eps)
+   clipped to [0, 1].
+
+2) Define sigma for schedule error per hour:
+   sigma_h = schedule_error_sigma_base
+             * (1 + schedule_error_residual_sensitivity * residual_share)
+             * scarcity_multiplier
+
+Where scarcity_multiplier = 1 + schedule_error_scarcity_mult * (is_scarcity_day * is_peak_hour)
+
+3) Sample error:
+   sched_error_mwh_h ~ Normal(0, sigma_h * load_fcst_mwh_h)
+
+4) Define schedule for hedged strategy:
+   sched_mwh_h = hedge_mwh_h + residual_mwh_h + sched_error_mwh_h
+
+Keep DA-only benchmark schedule as:
+- forecast (no hedge) + schedule error with residual_share = 1
+OR (even simpler) apply the same schedule error formula but set residual_share=1 for DA-only.
+
+Important: Use the same random generator (np.random.default_rng with a deterministic seed) so runs are reproducible. Prefer deriving the RNG from the simulation seed.
+
+### DA-only benchmark schedule error
+In the DA-only benchmark block:
+- compute sched_error_da_only using the same formula but residual_share=1 for all hours
+- da_only_sched = load_fcst + sched_error_da_only
+- da_only_imbalance_mwh_h = act - da_only_sched
+Then compute imbalance costs using `imb_buy_px` / `imb_sell_px` as already implemented.
+
+### Acceptance criteria for V2
+1) `poetry run python scripts/run_mvp.py` runs cleanly.
+2) `procurement_saving_vs_da_only_eur` is NOT identically equal to `hedge_delivery_pnl_eur` anymore.
+3) Comparative risk summary typically shows improved tails for hedged vs DA-only:
+   - delta_p95_eur > 0
+   - delta_max_eur > 0
+   (Not guaranteed every run, but should occur frequently.)

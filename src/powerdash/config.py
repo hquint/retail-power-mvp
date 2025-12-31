@@ -28,6 +28,8 @@ class SimConfig:
     # Scarcity regime (mock realism)
     scarcity_day_prob: float = 0.06  # ~6% of days are scarcity days in winter
     scarcity_peak_multiplier: float = 6.0  # multiplies the evening peak premium
-    forecast_sigma_scarcity_mult: float = (
-        2.5  # forecast sigma increases on scarcity days (more in peak hours)
-    )
+
+    # Schedule error (operational)
+    schedule_error_sigma_base: float = 0.015
+    schedule_error_residual_sensitivity: float = 1.5
+    schedule_error_scarcity_mult: float = 10.0
