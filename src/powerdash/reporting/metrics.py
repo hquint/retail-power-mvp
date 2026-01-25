@@ -67,3 +67,22 @@ def risk_summary(dash: pd.DataFrame) -> pd.DataFrame:
     }
 
     return pd.DataFrame([out])
+
+
+def risk_summary_table(dash: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return risk summary as a DataFrame for the dashboard.
+    """
+    return risk_summary(dash)
+
+
+def summary_row(dash: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return a 1-row summary with numeric columns summed.
+    """
+    df = dash.copy()
+    numeric_cols = df.select_dtypes(include="number").columns
+    out = {col: float(df[col].sum()) for col in numeric_cols}
+    out["date"] = "Total"
+    cols = ["date"] + [c for c in df.columns if c != "date"]
+    return pd.DataFrame([out], columns=cols)

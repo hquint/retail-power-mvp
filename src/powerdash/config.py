@@ -12,6 +12,8 @@ class SimConfig:
     # Portfolio sizing (MWh/day)
     daily_load_mwh: float = 100.0
     hedge_ratio: float = 0.70  # hedge fraction of expected daily load
+    hedge_ratio_short: float = 0.60  # 1-7 day hedge ratio
+    hedge_ratio_long: float = 0.85  # 31-60 day hedge ratio
 
     # Forecast error (relative)
     forecast_sigma: float = 0.01  # ~1% hourly-ish error aggregated

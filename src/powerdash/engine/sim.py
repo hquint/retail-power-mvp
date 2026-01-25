@@ -110,6 +110,8 @@ def run_simulation_hourly(
             val_date=t,
             horizon_days=cfg.fwd_horizon_days,
             expected_daily_load_mwh=exp_daily,
+            short_ratio=cfg.hedge_ratio_short,
+            long_ratio=cfg.hedge_ratio_long,
         )
 
         # Trade deltas to reach targets using today's forward curve snapshot
@@ -197,7 +199,8 @@ def run_simulation_hourly(
         da_only_sigma_h = (
             cfg.schedule_error_sigma_base
             * (1.0 + cfg.schedule_error_residual_sensitivity)
-            * scarcity_mult * cfg.da_only_schedule_error_mult
+            * scarcity_mult
+            * cfg.da_only_schedule_error_mult
         )
         da_only_sched_error = rng.normal(0.0, da_only_sigma_h * load_fcst)
         da_only_sched_mwh_h = tomorrow[COL_LOAD_FCST] + da_only_sched_error
