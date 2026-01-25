@@ -3,22 +3,26 @@ from __future__ import annotations
 import pandas as pd
 
 
-def hedge_ratio_by_tenor_days(k: int) -> float:
+def hedge_ratio_by_tenor_days(
+    k: int, short_ratio: float = 0.60, long_ratio: float = 0.85
+) -> float:
     """
     Simple hedge ladder by tenor (days ahead).
     Tune later / make configurable.
     """
     if 1 <= k <= 7:
-        return 0.60
+        return short_ratio
     if 8 <= k <= 30:
         return 0.75
-    return 0.85  # 31-60
+    return long_ratio  # 31-60
 
 
 def target_daily_hedge_book(
     val_date: pd.Timestamp,
     horizon_days: int,
     expected_daily_load_mwh: float,
+    short_ratio: float = 0.60,
+    long_ratio: float = 0.85,
 ) -> pd.DataFrame:
     """
     Returns target hedged MWh for each delivery date in (val_date+1 .. val_date+horizon).
@@ -27,7 +31,9 @@ def target_daily_hedge_book(
     rows = []
     for k in range(1, horizon_days + 1):
         d = val + pd.Timedelta(days=k)
-        hr = hedge_ratio_by_tenor_days(k)
+        hr = hedge_ratio_by_tenor_days(
+            k, short_ratio=short_ratio, long_ratio=long_ratio
+        )
         rows.append(
             {
                 "val_date": val,
