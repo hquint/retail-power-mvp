@@ -14,7 +14,7 @@ class SimConfig:
     hedge_ratio: float = 0.70  # hedge fraction of expected daily load
 
     # Forecast error (relative)
-    forecast_sigma: float = 0.03  # ~3% hourly-ish error aggregated
+    forecast_sigma: float = 0.01  # ~1% hourly-ish error aggregated
 
     # Imbalance proxy (state-dependent reBAP-style spread vs DA)
     imbalance_spread_base_eur_per_mwh: float = 6.0  # base spread always applied
@@ -30,6 +30,7 @@ class SimConfig:
     scarcity_peak_multiplier: float = 6.0  # multiplies the evening peak premium
 
     # Schedule error (operational)
+    da_only_schedule_error_mult: float = 1.6
     schedule_error_sigma_base: float = 0.015
     schedule_error_residual_sensitivity: float = 1.5
     schedule_error_scarcity_mult: float = 10.0
